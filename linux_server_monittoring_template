@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>6.0</version>
+    <date>2025-04-12T12:00:00Z</date>
+    <groups>
+        <group>
+            <uuid>7df96b18c230490a9a0a9e2307226338</uuid>
+            <name>Templates/Operating systems</name>
+        </group>
+    </groups>
+    <templates>
+        <template>
+            <uuid>10089cb5dce64ca496fb7a4102eb1eff</uuid>
+            <template>Custom Linux Server</template>
+            <name>Custom Linux Server</name>
+            <description>Custom Linux server monitoring template with optimized thresholds and multi-level triggers.</description>
+            <groups>
+                <group>
+                    <name>Templates/Operating systems</name>
+                </group>
+            </groups>
+            <items>
+                <item>
+                    <uuid>22acf27e5a3443a39542f4f5a50d4560</uuid>
+                    <name>CPU utilization</name>
+                    <key>system.cpu.util[,user]</key>
+                    <history>7d</history>
+                    <value_type>FLOAT</value_type>
+                    <units>%</units>
+                    <description>CPU utilization percentage</description>
+                </item>
+                <item>
+                    <uuid>cc84516c1b4f435d8e51ad690689c838</uuid>
+                    <name>Available memory</name>
+                    <key>vm.memory.size[available]</key>
+                    <history>7d</history>
+                    <units>B</units>
+                    <description>Available memory in bytes</description>
+                </item>
+                <item>
+                    <uuid>5dc2bf64aaf54b9ab66a0be1b9f10b29</uuid>
+                    <name>Disk space usage on /</name>
+                    <key>vfs.fs.size[/,used]</key>
+                    <history>7d</history>
+                    <units>B</units>
+                    <description>Used disk space on root filesystem</description>
+                </item>
+                <item>
+                    <uuid>a8b92adce07c41c7bacf99e6a76daed9</uuid>
+                    <name>System load (1m average)</name>
+                    <key>system.cpu.load[percpu,avg1]</key>
+                    <history>7d</history>
+                    <value_type>FLOAT</value_type>
+                    <description>CPU load average for 1 minute per CPU</description>
+                </item>
+            </items>
+            <triggers>
+                <trigger>
+                    <uuid>4120db18d9e04ed786c4e23f32c32306</uuid>
+                    <expression>{Custom Linux Server:system.cpu.util[,user].avg(5m)}&gt;80 and {Custom Linux Server:system.cpu.util[,user].avg(15m)}&gt;70</expression>
+                    <name>High CPU utilization</name>
+                    <priority>WARNING</priority>
+                    <description>CPU utilization exceeded 80% for 5 minutes and 70% for 15 minutes</description>
+                </trigger>
+                <trigger>
+                    <uuid>7744d78b3da740e6ae5f7ffdb9da4bea</uuid>
+                    <expression>{Custom Linux Server:vm.memory.size[available].last()}&lt;1073741824</expression>
+                    <name>Low memory available</name>
+                    <priority>WARNING</priority>
+                    <description>Less than 1GB of memory available</description>
+                </trigger>
+                <trigger>
+                    <uuid>b32fc36a9cd343b09b5d41b81f9f3d6a</uuid>
+                    <expression>{Custom Linux Server:vfs.fs.size[/,used].last()}&gt;({Custom Linux Server:vfs.fs.size[/,total].last()}*0.9)</expression>
+                    <name>Disk space critical on /</name>
+                    <priority>HIGH</priority>
+                    <description>Root filesystem is more than 90% full</description>
+                </trigger>
+                <trigger>
+                    <uuid>9f5c4e60d7b94eb395d6fcff4f75f9d9</uuid>
+                    <expression>{Custom Linux Server:system.cpu.load[percpu,avg1].min(5m)}&gt;5</expression>
+                    <name>System load too high</name>
+                    <priority>WARNING</priority>
+                    <description>System load is too high (over 5 per CPU)</description>
+                </trigger>
+            </triggers>
+        </template>
+    </templates>
+</zabbix_export>
