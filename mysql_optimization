@@ -1,0 +1,42 @@
+# mysql-zabbix-optimizations.cnf
+# Place in /etc/mysql/mysql.conf.d/
+
+[mysqld]
+# InnoDB settings
+innodb_buffer_pool_size = 1G
+innodb_log_file_size = 256M
+innodb_flush_method = O_DIRECT
+innodb_flush_log_at_trx_commit = 2
+innodb_file_per_table = 1
+
+# Connection settings
+max_connections = 300
+thread_cache_size = 16
+max_connect_errors = 1000
+
+# Query cache - disable for Zabbix workload
+query_cache_type = 0
+query_cache_size = 0
+
+# Logging
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/mysql-slow.log
+long_query_time = 3
+
+# Buffer sizes
+join_buffer_size = 4M
+sort_buffer_size = 4M
+read_buffer_size = 2M
+read_rnd_buffer_size = 2M
+
+# Temp tables
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+# Timeouts
+wait_timeout = 300
+interactive_timeout = 300
+
+# Character set and collation
+character_set_server = utf8mb4
+collation_server = utf8mb4_bin
