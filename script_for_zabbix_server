@@ -1,0 +1,75 @@
+#!/bin/bash
+# zabbix_server_install.sh
+# Automated installation script for Zabbix Server on Ubuntu 20.04 LTS
+# Created for Network Monitoring Project
+
+# Exit on any error
+set -e
+
+echo "Starting Zabbix Server installation..."
+
+# Add Zabbix repository
+wget https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-1+ubuntu20.04_all.deb
+dpkg -i zabbix-release_6.0-1+ubuntu20.04_all.deb
+apt update
+
+# Install components
+apt install -y zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-agent
+
+# Configure database
+echo "Creating MySQL database for Zabbix..."
+mysql -u root -p <<EOF
+CREATE DATABASE zabbix CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+CREATE USER 'zabbix'@'localhost' IDENTIFIED BY 'secure_password';
+GRANT ALL PRIVILEGES ON zabbix.* TO 'zabbix'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+
+# Import initial schema
+echo "Importing Zabbix schema..."
+zcat /usr/share/doc/zabbix-server-mysql*/create.sql.gz | mysql -u zabbix -psecure_password zabbix
+
+# Configure server
+echo "Configuring Zabbix server..."
+cat > /etc/zabbix/zabbix_server.conf <<EOF
+DBName=zabbix
+DBUser=zabbix
+DBPassword=secure_password
+StartPollers=25
+StartTrappers=10
+StartPingers=10
+StartDiscoverers=5
+CacheSize=128M
+HistoryCacheSize=64M
+TrendCacheSize=32M
+ValueCacheSize=256M
+Timeout=10
+LogSlowQueries=1000
+AlertScriptsPath=/usr/lib/zabbix/alertscripts
+ExternalScripts=/usr/lib/zabbix/externalscripts
+EOF
+
+# Configure PHP
+echo "Configuring PHP..."
+sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.4/fpm/php.ini
+sed -i 's/memory_limit = 128M/memory_limit = 256M/g' /etc/php/7.4/fpm/php.ini
+sed -i 's/post_max_size = 8M/post_max_size = 16M/g' /etc/php/7.4/fpm/php.ini
+sed -i 's/upload_max_filesize = 2M/upload_max_filesize = 16M/g' /etc/php/7.4/fpm/php.ini
+
+# MySQL optimization
+echo "Optimizing MySQL performance..."
+cat > /etc/mysql/mysql.conf.d/zabbix-optimizations.cnf <<EOF
+[mysqld]
+innodb_buffer_pool_size = 1G
+innodb_log_file_size = 256M
+innodb_flush_method = O_DIRECT
+max_connections = 300
+EOF
+
+# Enable services
+echo "Starting and enabling services..."
+systemctl restart zabbix-server zabbix-agent nginx php7.4-fpm mysql
+systemctl enable zabbix-server zabbix-agent nginx php7.4-fpm mysql
+
+echo "Zabbix server installation completed!"
+echo "Access the web interface at http://[server-ip]/zabbix/"
