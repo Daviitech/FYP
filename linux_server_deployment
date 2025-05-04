@@ -1,0 +1,57 @@
+#!/bin/bash
+# linux_agent_deploy.sh
+# Automated deployment script for Zabbix Agent on Linux systems
+
+# Exit on any error
+set -e
+
+# Default Zabbix server IP
+SERVER_IP="192.168.1.10"
+
+# Check if custom server IP provided
+if [ ! -z "$1" ]; then
+    SERVER_IP="$1"
+fi
+
+# Get hostname
+HOST_NAME=$(hostname)
+
+echo "Installing Zabbix agent for $HOST_NAME, connecting to server $SERVER_IP..."
+
+# Install agent
+apt update
+apt install -y zabbix-agent
+
+# Configure agent
+cat > /etc/zabbix/zabbix_agentd.conf <<EOF
+PidFile=/var/run/zabbix/zabbix_agentd.pid
+LogFile=/var/log/zabbix/zabbix_agentd.log
+LogFileSize=0
+Server=$SERVER_IP
+ServerActive=$SERVER_IP
+Hostname=$HOST_NAME
+Include=/etc/zabbix/zabbix_agentd.d/*.conf
+# Security configuration
+TLSConnect=psk
+TLSAccept=psk
+TLSPSKIdentity=PSK 001
+TLSPSKFile=/etc/zabbix/zabbix_agentd.psk
+EOF
+
+# Generate random PSK key
+openssl rand -hex 32 > /etc/zabbix/zabbix_agentd.psk
+chmod 600 /etc/zabbix/zabbix_agentd.psk
+
+# Configure firewall
+if command -v ufw > /dev/null; then
+    ufw allow 10050/tcp
+    echo "UFW rule added for Zabbix agent"
+fi
+
+# Start and enable agent
+systemctl restart zabbix-agent
+systemctl enable zabbix-agent
+
+echo "Zabbix agent installation completed!"
+echo "PSK Key for secure communications is in /etc/zabbix/zabbix_agentd.psk"
+echo "Add this host in Zabbix server with hostname: $HOST_NAME"
