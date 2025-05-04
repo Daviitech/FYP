@@ -1,0 +1,54 @@
+# windows_agent_deploy.ps1
+# Automated deployment script for Zabbix Agent on Windows systems
+
+# Default Zabbix server IP
+$ServerIP = "192.168.1.10"
+
+# Check if custom server IP provided
+if ($args[0]) {
+    $ServerIP = $args[0]
+}
+
+# Get hostname
+$HostName = [System.Net.Dns]::GetHostName()
+
+Write-Host "Installing Zabbix agent for $HostName, connecting to server $ServerIP..."
+
+# Create directory for Zabbix
+$ZabbixDir = "C:\Zabbix"
+if (!(Test-Path $ZabbixDir)) {
+    New-Item -ItemType Directory -Path $ZabbixDir
+}
+
+# Download agent package
+$url = "https://cdn.zabbix.com/zabbix/binaries/stable/6.0/6.0.0/zabbix_agent-6.0.0-windows-amd64.msi"
+$output = "$env:TEMP\zabbix_agent.msi"
+Invoke-WebRequest -Uri $url -OutFile $output
+
+# Install with custom parameters
+$arguments = "/i `"$output`" /qn SERVER=$ServerIP SERVERACTIVE=$ServerIP HOSTNAME=$HostName"
+Start-Process msiexec.exe -ArgumentList $arguments -Wait
+
+# Generate random PSK key
+$PSKIdentity = "PSK 001"
+$PSKKey = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+$PSKKey | Out-File "C:\Program Files\Zabbix Agent\zabbix_agentd.psk"
+
+# Configure agent with TLS
+$configPath = "C:\Program Files\Zabbix Agent\zabbix_agentd.conf"
+$config = Get-Content $configPath
+$config = $config -replace "# TLSConnect=unencrypted", "TLSConnect=psk"
+$config = $config -replace "# TLSAccept=unencrypted", "TLSAccept=psk"
+$config = $config -replace "# TLSPSKIdentity=", "TLSPSKIdentity=$PSKIdentity"
+$config = $config -replace "# TLSPSKFile=", "TLSPSKFile=C:\Program Files\Zabbix Agent\zabbix_agentd.psk"
+$config | Set-Content $configPath
+
+# Configure Windows Firewall
+New-NetFirewallRule -DisplayName "Zabbix Agent" -Direction Inbound -Protocol TCP -LocalPort 10050 -Action Allow
+
+# Restart Zabbix Agent service
+Restart-Service "Zabbix Agent"
+
+Write-Host "Zabbix agent installation completed!"
+Write-Host "PSK Key for secure communications has been generated"
+Write-Host "Add this host in Zabbix server with hostname: $HostName"
