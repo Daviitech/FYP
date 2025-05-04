@@ -1,0 +1,54 @@
+#!/bin/bash
+# telegram_alert.sh
+# Script for sending Zabbix alerts via Telegram
+# Place in /usr/lib/zabbix/alertscripts/
+
+# Parameters
+# $1 - Chat ID
+# $2 - Subject
+# $3 - Message
+
+# Configuration
+TOKEN="5555555555:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"  # Replace with your bot token
+CHAT_ID="$1"
+SUBJECT="$2"
+MESSAGE="$3"
+
+# Log file for debugging
+LOG_FILE="/tmp/telegram_alert.log"
+
+# Log function
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> $LOG_FILE
+}
+
+log_message "Received alert: CHAT_ID=$CHAT_ID, SUBJECT=$SUBJECT"
+
+# Format message with proper Markdown
+# Escape special characters for Markdown v2 format
+FORMATTED_SUBJECT=$(echo "$SUBJECT" | sed 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g')
+FORMATTED_MESSAGE=$(echo "$MESSAGE" | sed 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g')
+
+PAYLOAD="*$FORMATTED_SUBJECT*
+
+$FORMATTED_MESSAGE"
+
+log_message "Sending message to Telegram"
+
+# Send message with proper formatting
+RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d chat_id="${CHAT_ID}" \
+  -d text="${PAYLOAD}" \
+  -d parse_mode="MarkdownV2")
+
+# Log response
+log_message "Telegram API response: $RESPONSE"
+
+# Check if message was sent successfully
+if echo "$RESPONSE" | grep -q '"ok":true'; then
+    log_message "Message sent successfully"
+    exit 0
+else
+    log_message "Failed to send message"
+    exit 1
+fi
